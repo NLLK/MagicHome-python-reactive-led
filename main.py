@@ -1,14 +1,13 @@
-from PyQt5 import QtCore
 from sklearn import preprocessing
 from colorpicker.colorpicker import ColorPicker
 import magichome as mh
 import pyaudio
 import numpy as np
 import colorsys 
-from scipy.fftpack import rfft, rfftfreq
+from scipy.fftpack import rfft
 from PyQt5 import QtWidgets
 from PyQt5.QtGui import QColor, QPainter
-from PyQt5.QtCore import pyqtSignal
+from PyQt5.QtCore import QSettings, pyqtSignal
 from UI.mainUI import Ui_MainWindow
 import sys
 import time
@@ -25,21 +24,19 @@ class MainApp(QtWidgets.QMainWindow):
         self.init()
 
     def init(self):
-        self.color = QColor(255,255,255)
-        self.ip_addresss = '192.168.8.23'
+        SETTINGS_FILE_NAME = "settings.ini"
+        self.settings = QSettings(SETTINGS_FILE_NAME, QSettings.IniFormat)
         self.audioStreamInitialised = False
         self.ledLastTimeUpdated = time.time()
         self.recordNoiseTimer = time.time()
+        self.audio_chunk = 1024
         self.led_connected = False
         self.uiLastTimeUpdated = self.ledLastTimeUpdated 
         self.pyaudioModule = pyaudio.PyAudio()
-        self.audio_channels = 1
-        self.audio_rate = 44100
-        self.audio_dev_index = 4
-        self.audio_chunk = 1024
-        self.audio_noiseCansellationLevel = 5
+
         self.init_ui()
         self.init_ui_handlers()
+        self.loadSettings()
 
     def init_ui_handlers(self):
         self.ui.chooseColorButton.clicked.connect(self.e_chooseColorButton_clicked)
@@ -84,7 +81,37 @@ class MainApp(QtWidgets.QMainWindow):
                     name = name[:30]
                     name += "..."
                 self.ui.inputDevicesComboBox.addItem(index+'. '+name)
-        pass
+
+    def loadSettings(self):
+        self.color = self.settings.value('DefaultColor', QColor(255,255,255))
+        self.ip_addresss = self.settings.value('ip_address', '192.168.8.23')
+        self.audio_noiseCansellationLevel = int(self.settings.value('audio_noiseCansellationLevel', 5))
+        self.audio_device_index = int(self.settings.value('audio_device_index', 0))
+
+        choosenDevice = self.pyaudioModule.get_device_info_by_index(self.audio_device_index)
+        self.audio_channels = choosenDevice['maxInputChannels']
+        self.audio_rate = int(choosenDevice['defaultSampleRate'])
+
+        self.ui.ipaddressEdit.setText(self.ip_addresss)
+        self.ui.noiseCanselLevelSlider.setValue(self.audio_noiseCansellationLevel)
+        self.ui.noiseCanselLevelEdit.setText(str(self.audio_noiseCansellationLevel))
+        
+        realIndex = 0
+        for i in range(0, self.ui.inputDevicesComboBox.count()):
+            string = self.ui.inputDevicesComboBox.itemText(i)
+            string = string[:3].replace('.','')
+            index = int(string)-1
+            if index == self.audio_device_index:
+                realIndex= i
+                break
+        
+        self.ui.inputDevicesComboBox.setCurrentIndex(realIndex)
+    def save_settings(self):
+        s = self.settings
+        s.setValue('DefaultColor', self.color)
+        s.setValue('ip_address',self.ip_addresss)
+        s.setValue('audio_noiseCansellationLevel', self.audio_noiseCansellationLevel)
+        s.setValue('audio_device_index', self.audio_device_index)
 
     def paintEvent(self, e):
             qp = QPainter()
@@ -191,7 +218,7 @@ class MainApp(QtWidgets.QMainWindow):
         choosenDevice = self.pyaudioModule.get_device_info_by_index(dev_index)
         
         self.audio_channels = choosenDevice['maxInputChannels']
-        self.audio_dev_index = dev_index
+        self.audio_device_index = dev_index
         self.audio_rate = int(choosenDevice['defaultSampleRate'])
 
         self.e_reactiveStopButton_clicked()
@@ -207,7 +234,6 @@ class MainApp(QtWidgets.QMainWindow):
         else:
             self.ui.noiseCanselLevelSlider.setValue(value)
             
-        pass
     def s_lowBarSetValue(self, value):
         self.ui.lowBar.setValue(value)
     def s_midBarSetValue(self, value):
@@ -228,7 +254,7 @@ class MainApp(QtWidgets.QMainWindow):
                  rate = self.audio_rate,
                  output = False,
                  input = True,
-                 input_device_index = self.audio_dev_index,
+                 input_device_index = self.audio_device_index,
                  stream_callback = self.recordNoiseCallback,
                  frames_per_buffer = self.audio_chunk)
         self.audioStream.start_stream()
@@ -263,7 +289,7 @@ class MainApp(QtWidgets.QMainWindow):
                  rate = self.audio_rate,
                  output = False,
                  input = True,
-                 input_device_index = self.audio_dev_index,
+                 input_device_index = self.audio_device_index,
                  stream_callback = self.audioStreamCallback,
                  frames_per_buffer = self.audio_chunk)
             self.audioStream.start_stream()
@@ -386,7 +412,11 @@ class MainApp(QtWidgets.QMainWindow):
             if time.time() - self.ledLastTimeUpdated >(1/rate):
                 self.led.update_device(color.red(), color.green(), color.blue())
                 self.ledLastTimeUpdated = time.time()
-        
+    
+    def closeEvent(self, e):
+        self.save_settings()
+        super().closeEvent(e)
+    
 def main():
     #QT_QPA_PLATFORM_PLUGIN_PATH = ".venv\Lib\platforms"
     app = QtWidgets.QApplication([])
