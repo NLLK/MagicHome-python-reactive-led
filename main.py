@@ -11,12 +11,15 @@ from PyQt5.QtCore import QSettings, pyqtSignal
 from UI.mainUI import Ui_MainWindow
 import sys
 import time
+from enum import Enum
 
 class MainApp(QtWidgets.QMainWindow):
     lowBarSetValueSignal = pyqtSignal(int)
     midBarSetValueSignal = pyqtSignal(int)
     highBarSetValueSignal = pyqtSignal(int)
+    volumeBarSetValueSignal = pyqtSignal(int)
     noiseCanselLevelProgressBarSetValueSignal = pyqtSignal(int)
+
     def __init__(self):
         super(MainApp, self).__init__()
         self.ui = Ui_MainWindow()
@@ -34,6 +37,13 @@ class MainApp(QtWidgets.QMainWindow):
         self.uiLastTimeUpdated = self.ledLastTimeUpdated 
         self.pyaudioModule = pyaudio.PyAudio()
 
+        self.audio_mode = dict({'mode': 0, 'Fq':0})
+        self.Modes = dict({
+            'MIXED_COLORS': 0,
+            'COMPETITIVE': 1,
+            'PEAK_SINGLE' : 2,
+            'PEAK_RAINBOW' : 3,
+            'PEAK_FQ' : 4})
         self.init_ui()
         self.init_ui_handlers()
         self.loadSettings()
@@ -57,19 +67,31 @@ class MainApp(QtWidgets.QMainWindow):
         self.ui.lowCutOffSlider.valueChanged.connect(self.e_lowCutOffSlider_valueChanged)
         self.ui.midCutOffSlider.valueChanged.connect(self.e_midCutOffSlider_valueChanged)
         self.ui.highCutOffSlider.valueChanged.connect(self.e_highCutOffSlider_valueChanged)
+        self.ui.volumeCutOffSlider.valueChanged.connect(self.e_volumeCutOffSlider_valueChanged)
         self.ui.lowResetCutOffButton.clicked.connect(self.e_lowResetCutOffButton_clicked)
         self.ui.midResetCutOffButton.clicked.connect(self.e_midResetCutOffButton_clicked)
         self.ui.highResetCutOffButton.clicked.connect(self.e_highResetCutOffButton_clicked)
+        self.ui.volumeResetCutOffButton.clicked.connect(self.e_volumeResetCutOffButton_clicked)
         self.ui.ledDisconnectButton.clicked.connect(self.e_ledDisconnectButton_clicked)
         self.lowBarSetValueSignal.connect(self.s_lowBarSetValue)
         self.midBarSetValueSignal.connect(self.s_midBarSetValue)
         self.highBarSetValueSignal.connect(self.s_highBarSetValue)
+        self.volumeBarSetValueSignal.connect(self.s_volumeBarSetValue)
         self.noiseCanselLevelProgressBarSetValueSignal.connect(self.s_noiseCanselLevelProgressBarSetValue)
 
         self.ui.inputDevicesComboBox.currentIndexChanged.connect(self.e_inputDevicesComboBox_currentIndexChanged)
         self.ui.noiseCanselLevelSlider.valueChanged.connect(self.e_noiseCanselLevelSlider_valueChanged)
         self.ui.noiseCanselLevelEdit.textChanged.connect(self.e_noiseCanselLevelEdit_textChanged)
         self.ui.recordNoiseButton.clicked.connect(self.e_recordNoiseButton_clicked)
+
+        self.ui.modeMixedRadioButton.clicked.connect(self.e_modeChanged)
+        self.ui.modeCompetitiveRadioButton.clicked.connect(self.e_modeChanged)
+        self.ui.modeSingleColorRadioButton.clicked.connect(self.e_modeChanged)
+        self.ui.modePeakRainbowRadioButton.clicked.connect(self.e_modeChanged)
+        self.ui.modePeakFqRadioButton.clicked.connect(self.e_modeChanged)
+        self.ui.modePeakFqLowRadioButton.clicked.connect(self.e_modeChanged)
+        self.ui.modePeakFqMidRadioButton.clicked.connect(self.e_modeChanged)
+        self.ui.modePeakFqHighRadioButton.clicked.connect(self.e_modeChanged)
 
     def init_ui(self):
         for i in range(0, int(self.pyaudioModule.get_device_count()/2)):
@@ -191,6 +213,8 @@ class MainApp(QtWidgets.QMainWindow):
         self.ui.midCutOffLabel.setText(str(e)+'%')
     def e_highCutOffSlider_valueChanged(self,e):
         self.ui.highCutOffLabel.setText(str(e)+'%')
+    def e_volumeCutOffSlider_valueChanged(self,e):
+        self.ui.volumeCutOffLabel.setText(str(e)+'%')
 
     def e_lowResetCutOffButton_clicked(self):
         self.ui.lowCutOffLabel.setText(str(0)+'%')
@@ -201,6 +225,9 @@ class MainApp(QtWidgets.QMainWindow):
     def e_highResetCutOffButton_clicked(self):
         self.ui.highCutOffLabel.setText(str(0)+'%')
         self.ui.highCutOffSlider.setValue(0)
+    def e_volumeResetCutOffButton_clicked(self):
+        self.ui.volumeCutOffLabel.setText(str(0)+'%')
+        self.ui.volumeCutOffSlider.setValue(0)
 
     def e_brightnessSlider_valueChanged(self,e):
         self.ui.brightnessEdit.setText(str(e))
@@ -233,15 +260,42 @@ class MainApp(QtWidgets.QMainWindow):
             pass
         else:
             self.ui.noiseCanselLevelSlider.setValue(value)
-            
+    
+    def e_modeChanged(self, e):
+        buttonName = self.sender().objectName()
+        if buttonName == 'modeMixedRadioButton':
+            self.audio_mode['mode'] = self.Modes['MIXED_COLORS']
+        elif buttonName == 'modeCompetitiveRadioButton':
+            self.audio_mode['mode'] = self.Modes['COMPETITIVE']
+        elif buttonName == 'modeSingleColorRadioButton':
+            self.audio_mode['mode'] = self.Modes['PEAK_SINGLE']
+        elif buttonName == 'modePeakRainbowRadioButton':
+            self.audio_mode['mode'] = self.Modes['PEAK_RAINBOW']
+        elif buttonName == 'modePeakFqRadioButton':
+            self.audio_mode['mode'] = self.Modes['PEAK_FQ']
+        elif buttonName == 'modePeakFqLowRadioButton':
+            self.audio_mode['Fq'] = 0
+        elif buttonName == 'modePeakFqMidRadioButton':
+            self.audio_mode['Fq'] = 1
+        elif buttonName == 'modePeakFqHighRadioButton':
+            self.audio_mode['Fq'] = 2
+        #if self.audio_mode['mode']<self.Modes['PEAK_FQ']:
+        self.ui.modePeakFqChooseBox.setEnabled(self.audio_mode['mode']>=self.Modes['PEAK_FQ'])
+        print(self.audio_mode)
+
+    ###Signals###
     def s_lowBarSetValue(self, value):
         self.ui.lowBar.setValue(value)
     def s_midBarSetValue(self, value):
         self.ui.midBar.setValue(value)
     def s_highBarSetValue(self, value):
-        self.ui.highBar.setValue(value)   
+        self.ui.highBar.setValue(value) 
+    def s_volumeBarSetValue(self, value):
+        self.ui.volumeBar.setValue(value)    
     def s_noiseCanselLevelProgressBarSetValue(self, value):
         self.ui.noiseCanselLevelProgressBar.setValue(value)   
+
+
     def e_recordNoiseButton_clicked(self):
         self.recordNoiseTimer = time.time()
         self.audio_noiseCansellationLevel = 0
@@ -326,10 +380,12 @@ class MainApp(QtWidgets.QMainWindow):
 
         step = float(self.audio_rate)/self.audio_chunk          #we have (for example) 1024 numbers for 44100 hz sectors, so they are grouped to 44100/1024 sectors
         lowBorderIndex = int(self.ui.lowDial.value()//step)     #first upper border to split array
-        if lowBorderIndex == 0:
+        if lowBorderIndex == 0:                                 #fixing issues may caused by ui
             lowBorderIndex = 1
         lowArray = fft_fin[:lowBorderIndex]                     #spliting first part
         midBorderIndex = int(self.ui.midDial.value()//step)     #second upper border to split array
+
+        #few fixes for ui things
         if midBorderIndex-lowBorderIndex < 1:
             midBorderIndex += abs(midBorderIndex-lowBorderIndex)+1
         midArray = fft_fin[lowBorderIndex:midBorderIndex]       #spliting second part
@@ -345,13 +401,14 @@ class MainApp(QtWidgets.QMainWindow):
         midMax = self.cut_off_value(midMax,self.ui.midCutOffSlider.value())
         highMax = self.cut_off_value(highMax,self.ui.highCutOffSlider.value())
 
-
+        maxFin = self.cut_off_value(max,self.ui.volumeCutOffSlider.value())
         #adjust volume for each part
         lowFin = self.check_number_value(lowMax + (self.ui.lowGainSlider.value()-50),100)
         midFin = self.check_number_value(midMax + (self.ui.midGainSlider.value()-50),100)
         highFin = self.check_number_value(highMax + (self.ui.highGainSlider.value()-50),100)
+        
 
-        self.ui_updateBars(int(lowFin),int(midFin),int(highFin))#Updating bars showing level of each part
+        self.ui_updateBars(int(lowFin),int(midFin),int(highFin), int(maxFin))#Updating bars showing level of each part
 
         #TODO: добавить режим, где моргает просто по максимуму громкости
         flag = False
@@ -386,12 +443,11 @@ class MainApp(QtWidgets.QMainWindow):
             return 0
         else:
             return value
-    def ui_updateBars(self, low, mid, high):
-
+    def ui_updateBars(self, low, mid, high, volume):
         self.lowBarSetValueSignal.emit(low)
         self.midBarSetValueSignal.emit(mid)
         self.highBarSetValueSignal.emit(high)
-        self.ui_barsLastTimeUpdated = time.time()
+        self.volumeBarSetValueSignal.emit(volume)
     def change_brightness(self, color, level):
         oldColor = color
         level = level/100
@@ -416,7 +472,7 @@ class MainApp(QtWidgets.QMainWindow):
     def closeEvent(self, e):
         self.save_settings()
         super().closeEvent(e)
-    
+
 def main():
     #QT_QPA_PLATFORM_PLUGIN_PATH = ".venv\Lib\platforms"
     app = QtWidgets.QApplication([])
@@ -425,5 +481,6 @@ def main():
     mainApp.show()
 
     sys.exit(app.exec())
+#"h:/Тукументы new/!projects/MagicHomeRGB/.venv/Scripts/activate.bat"
 #pyuic5 ui\main.ui -o ui\mainUI.py  
 main()
