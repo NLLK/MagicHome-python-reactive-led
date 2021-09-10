@@ -6,8 +6,8 @@ import numpy as np
 import colorsys 
 from scipy.fftpack import rfft
 from PyQt5 import QtWidgets
-from PyQt5.QtGui import QColor, QPainter
-from PyQt5.QtCore import QSettings, pyqtSignal
+from PyQt5.QtGui import QColor, QPainter, QPixmap
+from PyQt5.QtCore import QSettings, QTimer, pyqtSignal
 from UI.mainUI import Ui_MainWindow
 import sys
 import time
@@ -34,6 +34,7 @@ class MainApp(QtWidgets.QMainWindow):
         self.recordNoiseTimer = time.time()
         self.audio_chunk = 1024
         self.led_connected = False
+        self.update_rate = 60
         self.uiLastTimeUpdated = self.ledLastTimeUpdated 
         self.pyaudioModule = pyaudio.PyAudio()
 
@@ -44,6 +45,10 @@ class MainApp(QtWidgets.QMainWindow):
             'PEAK_SINGLE' : 2,
             'PEAK_RAINBOW' : 3,
             'PEAK_FQ' : 4})
+        self.rainbow_step = 0
+        self.rainbow_timer = QTimer()
+        self.rainbow_timer.timeout.connect(self.e_rainbow_timer_timeout)
+        self.rainbow_maximum = 255 #DO NOT CHANGE IT IM TOO LAZY TO MAKE IT CHANGEBLE
         self.init_ui()
         self.init_ui_handlers()
         self.loadSettings()
@@ -93,6 +98,9 @@ class MainApp(QtWidgets.QMainWindow):
         self.ui.modePeakFqMidRadioButton.clicked.connect(self.e_modeChanged)
         self.ui.modePeakFqHighRadioButton.clicked.connect(self.e_modeChanged)
 
+        self.ui.rainbowModeStartButton.clicked.connect(self.e_rainbowModeStartButton_clicked)
+        self.ui.rainbowModeStopButton.clicked.connect(self.e_rainbowModeStopButton_clicked)
+
     def init_ui(self):
         for i in range(0, int(self.pyaudioModule.get_device_count()/2)):
             device = self.pyaudioModule.get_device_info_by_index(i)
@@ -106,6 +114,7 @@ class MainApp(QtWidgets.QMainWindow):
 
     def loadSettings(self):
         self.color = self.settings.value('DefaultColor', QColor(255,255,255))
+        self.ui.colorPickedLabel.setStyleSheet("QWidget { background-color: %s}" % self.color.name())
         self.ip_addresss = self.settings.value('ip_address', '192.168.8.23')
         self.audio_noiseCansellationLevel = int(self.settings.value('audio_noiseCansellationLevel', 5))
         self.audio_device_index = int(self.settings.value('audio_device_index', 0))
@@ -135,21 +144,12 @@ class MainApp(QtWidgets.QMainWindow):
         s.setValue('audio_noiseCansellationLevel', self.audio_noiseCansellationLevel)
         s.setValue('audio_device_index', self.audio_device_index)
 
-    def paintEvent(self, e):
-            qp = QPainter()
-            qp.begin(self)
-            self.drawRectangle(qp)
-            qp.end()
-            pass
-    def drawRectangle(self,qp):
-        qp.setBrush(self.color)
-        qp.drawRect(20, 60, 100, 100)
-
     def e_chooseColorButton_clicked(self):
         self.paintingActive = False
         my_color_picker = ColorPicker()
         picked_color = my_color_picker.getColor()
         self.color = QColor(int(picked_color[0]),int(picked_color[1]),int(picked_color[2]))
+        self.ui.colorPickedLabel.setStyleSheet("QWidget { background-color: %s}" % self.color.name())
         level = self.ui.brightnessSlider.value()
         self.color = self.change_brightness(self.color, self.brightnessLevelFix(level))
         if self.led_connected == True:
@@ -174,6 +174,7 @@ class MainApp(QtWidgets.QMainWindow):
     def e_powerOnButton_clicked(self):
         if self.led_connected == True:
             self.led.turn_on()
+            self.updateDevice(self.color)
     def e_powerOffButton_clicked(self):
         if self.led_connected == True:
             self.led.turn_off()
@@ -279,22 +280,37 @@ class MainApp(QtWidgets.QMainWindow):
             self.audio_mode['Fq'] = 1
         elif buttonName == 'modePeakFqHighRadioButton':
             self.audio_mode['Fq'] = 2
-        #if self.audio_mode['mode']<self.Modes['PEAK_FQ']:
         self.ui.modePeakFqChooseBox.setEnabled(self.audio_mode['mode']>=self.Modes['PEAK_FQ'])
         print(self.audio_mode)
+    def e_rainbowModeStartButton_clicked(self):
+        self.ui.reactiveBox.setDisabled(True)
+        self.rainbow_timer.start(int(1000/self.update_rate))
+        pass
+    def e_rainbowModeStopButton_clicked(self):
+        self.ui.reactiveBox.setDisabled(False)
+        self.rainbow_timer.stop()
+        pass
+    def e_rainbow_timer_timeout(self):
+        time = self.ui.rainbowTimeEdit.time().second() + self.ui.rainbowTimeEdit.time().minute()*60 + self.ui.rainbowTimeEdit.time().hour() *60*60
+        step = self.rainbow_maximum*6/(time*self.update_rate)
+        self.rainbowing(step)
+        pass
 
     ###Signals###
     def s_lowBarSetValue(self, value):
         self.ui.lowBar.setValue(value)
+        self.ui.lowBarDupl.setValue(value)
     def s_midBarSetValue(self, value):
         self.ui.midBar.setValue(value)
+        self.ui.midBarDupl.setValue(value)
     def s_highBarSetValue(self, value):
         self.ui.highBar.setValue(value) 
+        self.ui.highBarDupl.setValue(value) 
     def s_volumeBarSetValue(self, value):
         self.ui.volumeBar.setValue(value)    
+        self.ui.volumeBarDupl.setValue(value)    
     def s_noiseCanselLevelProgressBarSetValue(self, value):
         self.ui.noiseCanselLevelProgressBar.setValue(value)   
-
 
     def e_recordNoiseButton_clicked(self):
         self.recordNoiseTimer = time.time()
@@ -348,33 +364,26 @@ class MainApp(QtWidgets.QMainWindow):
                  frames_per_buffer = self.audio_chunk)
             self.audioStream.start_stream()
             self.ui.recordNoiseButton.setDisabled(True)
-
     def e_reactiveStopButton_clicked(self):
         if self.audioStreamInitialised == True:
             self.ui.recordNoiseButton.setEnabled(True)
             self.audioStream.stop_stream()
-            #self.pyaudioModule.terminate()
             self.audioStreamInitialised = False
-            self.fftthings()#TODO: delete it
 
     def audioStreamCallback(self, in_data, frame_count, time_info, flag):
-        self.row_data = in_data
-        rate = 60
-        if time.time() - self.uiLastTimeUpdated >(1/rate):
-            self.fftthings()
+        if time.time() - self.uiLastTimeUpdated >(1/self.update_rate):
+            self.displaying_audio(in_data)
             self.uiLastTimeUpdated = time.time()
 
         return in_data, pyaudio.paContinue
-    def fftthings(self):
-        array = np.frombuffer(self.row_data, dtype=np.int16)    #creating array with audio data
+    def displaying_audio(self,row_data):
+        array = np.frombuffer(row_data, dtype=np.int16)    #creating array with audio data
         fft_row = rfft(array)                                   #using fft to create fq array
         fft_abs = abs(fft_row)                                  #get real
-        noise_level = self.audio_noiseCansellationLevel*1000
+        noise_level = self.audio_noiseCansellationLevel*1000    #getting noise cansellation level
         fft_abs[fft_abs <=noise_level] = 0                      #noise reduction
-        norm_array = preprocessing.normalize([fft_abs])         #normalizing, cus otherwise it would be dependent on volume
+        norm_array = preprocessing.normalize([fft_abs])         #normalizing, cus otherwise it would be dependented on volume
         fft_fin = norm_array[0]*100                             #multiplying to make it looks like percents
-        #SINGLE COLOR MODE: PEAKS
-        max = np.max(fft_fin)                                   #finding maximum of signal
 
         #catecorize fqs for three groups (of course you can create your own but i needed these three)
 
@@ -395,35 +404,78 @@ class MainApp(QtWidgets.QMainWindow):
         lowMax = np.max(lowArray)                               
         midMax = np.max(midArray)
         highMax = np.max(highArray)
+        #and for all signal
+        max = np.max(fft_fin)                                   
 
-        #cut off some values to make output more spiky
-        lowMax = self.cut_off_value(lowMax,self.ui.lowCutOffSlider.value())
-        midMax = self.cut_off_value(midMax,self.ui.midCutOffSlider.value())
-        highMax = self.cut_off_value(highMax,self.ui.highCutOffSlider.value())
+        #adjust volume for each part
+        lowMax = self.check_number_value(lowMax + (self.ui.lowGainSlider.value()-50),100)
+        midMax = self.check_number_value(midMax + (self.ui.midGainSlider.value()-50),100)
+        highMax = self.check_number_value(highMax + (self.ui.highGainSlider.value()-50),100)
 
         maxFin = self.cut_off_value(max,self.ui.volumeCutOffSlider.value())
-        #adjust volume for each part
-        lowFin = self.check_number_value(lowMax + (self.ui.lowGainSlider.value()-50),100)
-        midFin = self.check_number_value(midMax + (self.ui.midGainSlider.value()-50),100)
-        highFin = self.check_number_value(highMax + (self.ui.highGainSlider.value()-50),100)
+        #cut off some values to make output more spiky
+        lowFin = self.cut_off_value(lowMax,self.ui.lowCutOffSlider.value())
+        midFin = self.cut_off_value(midMax,self.ui.midCutOffSlider.value())
+        highFin = self.cut_off_value(highMax,self.ui.highCutOffSlider.value())
         
-
         self.ui_updateBars(int(lowFin),int(midFin),int(highFin), int(maxFin))#Updating bars showing level of each part
-
-        #TODO: добавить режим, где моргает просто по максимуму громкости
-        flag = False
-        if flag == True:
-            level = max
-            newColor = self.change_brightness(self.color,level)
-            self.updateDevice(newColor)
-            pass
-        else:  
-            brightness = self.ui.brightnessSlider.value()/100
+        brightness = self.ui.brightnessSlider.value()/100
+        if self.audio_mode['mode'] == self.Modes['MIXED_COLORS']:
             red = int(lowFin *(255/100)*brightness)
             blue = int(midFin *(255/100)*brightness)
             green = int(highFin *(255/100)*brightness)
             color = QColor(red, green, blue)
             self.updateDevice(color)
+
+        elif self.audio_mode['mode'] == self.Modes['COMPETITIVE']:           
+            if lowFin > midFin and lowFin > highFin:
+                red = int(lowFin *(255/100)*brightness)
+                blue = 0
+                green = 0
+            elif midFin > lowFin and midFin > highFin:
+                red = 0
+                blue = int(midFin *(255/100)*brightness)
+                green = 0
+            elif highFin > lowFin and highFin > midFin:
+                red = 0
+                blue = 0
+                green = int(highFin *(255/100)*brightness)
+            else:
+                red = 0
+                green = 0
+                blue = 0
+            color = QColor(red, green, blue)
+            self.updateDevice(color)
+            
+        elif self.audio_mode['mode'] == self.Modes['PEAK_SINGLE']:
+            level = maxFin
+            newColor = self.change_brightness(self.color,level)
+            self.updateDevice(newColor)
+            pass
+
+        elif self.audio_mode['mode'] == self.Modes['PEAK_RAINBOW']:
+            if maxFin <10:
+                self.rainbowing(2)
+            else:
+                self.rainbowing(maxFin*(255/100)/8)
+                print(maxFin*(255/100)/8)
+        elif self.audio_mode['mode'] == self.Modes['PEAK_FQ']:
+            if self.audio_mode['Fq'] == 0:
+                red = int(lowFin *(255/100)*brightness)
+                blue = 0
+                green = 0
+                
+            elif self.audio_mode['Fq'] == 1:
+                red = 0
+                blue = int(midFin *(255/100)*brightness)
+                green = 0
+                
+            elif self.audio_mode['Fq'] == 2:
+                red = 0
+                blue = 0
+                green = int(highFin *(255/100)*brightness)
+            color = QColor(red, green, blue)
+            self.updateDevice(color)    
 
         ### OTHER THINGS ###
 
@@ -462,12 +514,51 @@ class MainApp(QtWidgets.QMainWindow):
         if level <1:
             level = 1
         return level
+    
+    def rainbowing(self, step):
+        maximum = self.rainbow_maximum #DO NOT CHANGE IT IM TOO LAZY TO MAKE IT CHANGEBLE
+        
+        if self.rainbow_step < maximum:
+            red = 255
+            green = int(self.rainbow_step)
+            blue = 0
+        elif self.rainbow_step < 2*maximum:
+            red = int(255 - (self.rainbow_step-maximum))
+            green = 255
+            blue = 0
+        elif self.rainbow_step < 3*maximum:
+            red = 0
+            green = 255
+            blue = int(self.rainbow_step - maximum*2)
+
+        elif self.rainbow_step < 4*maximum:
+            red = 0
+            green = int(255 - (self.rainbow_step-(3*maximum)))
+            blue = 255
+
+        elif self.rainbow_step < 5*maximum:
+            red = int(self.rainbow_step-maximum*4)
+            green = 0
+            blue = 255
+
+        else:
+            red = 255
+            green = 0
+            blue = int(255 - (self.rainbow_step-(5*maximum)))
+        
+        brightness = self.check_number_value(self.ui.brightnessSlider.value(), 99)
+        color = QColor(int(red), int(green), int(blue))
+        color = self.change_brightness(color, brightness)
+        self.updateDevice(color)
+
+        self.rainbow_step += step
+        if self.rainbow_step >= maximum*6:
+            self.rainbow_step = 0
+    
     def updateDevice(self, color):
         if self.led_connected == True:
-            rate = 60
-            if time.time() - self.ledLastTimeUpdated >(1/rate):
-                self.led.update_device(color.red(), color.green(), color.blue())
-                self.ledLastTimeUpdated = time.time()
+            self.led.update_device(color.red(), color.green(), color.blue())
+            self.ledLastTimeUpdated = time.time()
     
     def closeEvent(self, e):
         self.save_settings()
