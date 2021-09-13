@@ -9,7 +9,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>615</width>
+    <width>619</width>
     <height>793</height>
    </rect>
   </property>
@@ -32,8 +32,14 @@
       <height>801</height>
      </rect>
     </property>
+    <property name="tabPosition">
+     <enum>QTabWidget::North</enum>
+    </property>
+    <property name="tabShape">
+     <enum>QTabWidget::Rounded</enum>
+    </property>
     <property name="currentIndex">
-     <number>0</number>
+     <number>1</number>
     </property>
     <widget class="QWidget" name="mainTab">
      <attribute name="title">
@@ -119,14 +125,14 @@
       </property>
       <property name="geometry">
        <rect>
-        <x>0</x>
+        <x>10</x>
         <y>220</y>
-        <width>601</width>
+        <width>591</width>
         <height>561</height>
        </rect>
       </property>
       <property name="title">
-       <string>Reactive LED</string>
+       <string> Reactive LED</string>
       </property>
       <widget class="QLabel" name="_chooseInputDeviceLabel">
        <property name="geometry">
@@ -146,7 +152,7 @@
         <rect>
          <x>300</x>
          <y>20</y>
-         <width>291</width>
+         <width>281</width>
          <height>22</height>
         </rect>
        </property>
@@ -165,7 +171,7 @@
         <rect>
          <x>10</x>
          <y>60</y>
-         <width>581</width>
+         <width>571</width>
          <height>91</height>
         </rect>
        </property>
@@ -531,7 +537,7 @@
           <number>1</number>
          </property>
          <property name="maximum">
-          <number>50</number>
+          <number>20</number>
          </property>
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
@@ -590,7 +596,7 @@
       <widget class="QPushButton" name="openPreferencesMenuButton">
        <property name="geometry">
         <rect>
-         <x>450</x>
+         <x>440</x>
          <y>400</y>
          <width>141</width>
          <height>23</height>
@@ -603,7 +609,7 @@
       <widget class="QLabel" name="_preflinkLabel">
        <property name="geometry">
         <rect>
-         <x>290</x>
+         <x>280</x>
          <y>380</y>
          <width>291</width>
          <height>16</height>
@@ -1053,7 +1059,7 @@
         <rect>
          <x>90</x>
          <y>30</y>
-         <width>82</width>
+         <width>41</width>
          <height>17</height>
         </rect>
        </property>
@@ -1069,7 +1075,7 @@
         <rect>
          <x>140</x>
          <y>30</y>
-         <width>82</width>
+         <width>51</width>
          <height>17</height>
         </rect>
        </property>
@@ -1085,7 +1091,7 @@
         <rect>
          <x>200</x>
          <y>30</y>
-         <width>82</width>
+         <width>41</width>
          <height>17</height>
         </rect>
        </property>
@@ -1402,9 +1408,12 @@
         <rect>
          <x>90</x>
          <y>30</y>
-         <width>82</width>
+         <width>41</width>
          <height>17</height>
         </rect>
+       </property>
+       <property name="styleSheet">
+        <string notr="true"/>
        </property>
        <property name="text">
         <string>Red</string>
@@ -1418,7 +1427,7 @@
         <rect>
          <x>140</x>
          <y>30</y>
-         <width>82</width>
+         <width>51</width>
          <height>17</height>
         </rect>
        </property>
@@ -1431,7 +1440,7 @@
         <rect>
          <x>200</x>
          <y>30</y>
-         <width>82</width>
+         <width>41</width>
          <height>17</height>
         </rect>
        </property>
@@ -1745,7 +1754,7 @@
         <rect>
          <x>90</x>
          <y>30</y>
-         <width>82</width>
+         <width>41</width>
          <height>17</height>
         </rect>
        </property>
@@ -1758,7 +1767,7 @@
         <rect>
          <x>140</x>
          <y>30</y>
-         <width>82</width>
+         <width>51</width>
          <height>17</height>
         </rect>
        </property>
@@ -1774,7 +1783,7 @@
         <rect>
          <x>200</x>
          <y>30</y>
-         <width>82</width>
+         <width>41</width>
          <height>17</height>
         </rect>
        </property>
@@ -2070,6 +2079,37 @@
         <enum>QProgressBar::TopToBottom</enum>
        </property>
       </widget>
+     </widget>
+     <widget class="QPushButton" name="backToMainButton">
+      <property name="geometry">
+       <rect>
+        <x>500</x>
+        <y>710</y>
+        <width>101</width>
+        <height>23</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Back to Main Page</string>
+      </property>
+     </widget>
+     <widget class="QLabel" name="_backToMainLabel">
+      <property name="geometry">
+       <rect>
+        <x>460</x>
+        <y>680</y>
+        <width>131</width>
+        <height>26</height>
+       </rect>
+      </property>
+      <property name="font">
+       <font>
+        <pointsize>9</pointsize>
+       </font>
+      </property>
+      <property name="text">
+       <string>And we are going back:</string>
+      </property>
      </widget>
     </widget>
    </widget>
