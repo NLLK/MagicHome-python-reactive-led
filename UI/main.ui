@@ -39,7 +39,7 @@
      <enum>QTabWidget::Rounded</enum>
     </property>
     <property name="currentIndex">
-     <number>1</number>
+     <number>0</number>
     </property>
     <widget class="QWidget" name="mainTab">
      <attribute name="title">
@@ -522,7 +522,7 @@
          </rect>
         </property>
         <property name="title">
-         <string>Change its speed</string>
+         <string>Change rainbows speed</string>
         </property>
         <widget class="QSlider" name="modePeakRainbowSpeedSlider">
          <property name="geometry">

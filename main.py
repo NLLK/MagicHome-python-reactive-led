@@ -1,3 +1,4 @@
+from functools import reduce
 from sklearn import preprocessing
 from colorpicker.colorpicker import ColorPicker
 import magichome as mh
@@ -323,6 +324,7 @@ class MainApp(QtWidgets.QMainWindow):
         elif buttonName == 'highBlueRadioButton':
             self.color_mode['high'] = 2
         print(self.color_mode)
+        self.get_color(152,106,94)
     
     def e_rainbowModeStartButton_clicked(self):
         self.ui.reactiveBox.setDisabled(True)
@@ -477,35 +479,22 @@ class MainApp(QtWidgets.QMainWindow):
         self.ui_updateBars(int(lowFin),int(midFin),int(highFin), int(maxFin))#Updating bars showing level of each part
         brightness = self.ui.brightnessSlider.value()/100
         if self.audio_mode['mode'] == self.Modes['MIXED_COLORS']:
-            red = int(lowFin *(255/100)*brightness)
-            blue = int(midFin *(255/100)*brightness)
-            green = int(highFin *(255/100)*brightness)
+            lowBrightness = int(lowFin *(255/100)*brightness)
+            midBrightness = int(midFin *(255/100)*brightness)
+            highBrightness = int(highFin *(255/100)*brightness)
 
-            lowColor = int(lowFin *(255/100)*brightness)
-            midColor = int(midFin *(255/100)*brightness)
-            highColor= int(highFin *(255/100)*brightness)
-
-            color = QColor(red, green, blue)
+            color = self.get_color(lowBrightness, midBrightness, highBrightness)
             self.updateDevice(color)
 
         elif self.audio_mode['mode'] == self.Modes['COMPETITIVE']:           
             if lowFin > midFin and lowFin > highFin:
-                red = int(lowFin *(255/100)*brightness)
-                blue = 0
-                green = 0
+                color = self.get_color(int(lowFin *(255/100)*brightness), 0,0)
             elif midFin > lowFin and midFin > highFin:
-                red = 0
-                blue = int(midFin *(255/100)*brightness)
-                green = 0
+                color = self.get_color(0, int(midFin *(255/100)*brightness),0)
             elif highFin > lowFin and highFin > midFin:
-                red = 0
-                blue = 0
-                green = int(highFin *(255/100)*brightness)
+                color = self.get_color(0, 0,int(highFin *(255/100)*brightness))
             else:
-                red = 0
-                green = 0
-                blue = 0
-            color = QColor(red, green, blue)
+                color = QColor(0,0,0)
             self.updateDevice(color)
             
         elif self.audio_mode['mode'] == self.Modes['PEAK_SINGLE']:
@@ -519,24 +508,14 @@ class MainApp(QtWidgets.QMainWindow):
                 self.rainbowing(speed)
             else:
                 self.rainbowing(self.check_number_value(maxFin*(255/100)*speed/15,255*50/self.update_rate))
-                print(self.check_number_value(maxFin*(255/100)*speed/15,255*50/self.update_rate))
 
         elif self.audio_mode['mode'] == self.Modes['PEAK_FQ']:
             if self.audio_mode['Fq'] == 0:
-                red = int(lowFin *(255/100)*brightness)
-                blue = 0
-                green = 0
-                
+                color = self.get_color(int(lowFin *(255/100)*brightness), 0,0)
             elif self.audio_mode['Fq'] == 1:
-                red = 0
-                blue = int(midFin *(255/100)*brightness)
-                green = 0
-                
+                color = self.get_color(0, int(midFin *(255/100)*brightness),0)
             elif self.audio_mode['Fq'] == 2:
-                red = 0
-                blue = 0
-                green = int(highFin *(255/100)*brightness)
-            color = QColor(red, green, blue)
+                color = self.get_color(0, 0,int(highFin *(255/100)*brightness))
             self.updateDevice(color)    
 
         ### OTHER THINGS ###
@@ -577,7 +556,50 @@ class MainApp(QtWidgets.QMainWindow):
             level = 1
         return level
     def get_color(self, low, mid, high):
-        pass
+        red = 0
+        green = 0
+        blue = 0
+
+        if self.color_mode['low'] == 0:
+            red = low
+        elif self.color_mode['low'] == 1:
+            green = low
+        elif self.color_mode['low'] == 2:
+            blue = low
+
+        if self.color_mode['mid'] == 0:
+            if red !=0:
+                if mid>red:
+                    red = mid
+            else: red = mid
+        elif self.color_mode['mid'] == 1:
+            if green !=0:
+                if mid>green:
+                    green = mid
+            else: green = mid
+        elif self.color_mode['mid'] == 2:
+            if blue !=0:
+                if mid>blue:
+                    blue = mid
+            else: blue = mid
+        
+        if self.color_mode['high'] == 0:
+            if red !=0:
+                if high>red:
+                    red = high
+            else: red = high
+        elif self.color_mode['high'] == 1:
+            if green !=0:
+                if high>green:
+                    green = high
+            else: green = high
+        elif self.color_mode['high'] == 2:
+            if blue !=0:
+                if high>blue:
+                    blue = high
+            else: blue = high
+
+        return QColor(red, green, blue)
 
     def rainbowing(self, step):
         maximum = self.rainbow_maximum #DO NOT CHANGE IT IM TOO LAZY TO MAKE IT CHANGEBLE
